@@ -1,3 +1,10 @@
+#include <SPI.h>
+#include <Wire.h>
+#include <U8g2lib.h>
+
+U8G2_SSD1309_128X64_NONAME0_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+
+
 
 ////////////////////////////////FUNCTIONALITY of 4 buttons/////////////////////
 long randNum2; // DECLARES OUR Random num for this subprocess
@@ -11,11 +18,47 @@ bool gameOver = false;
 bool winner = false;
 ///////////////////////
 
+
+void waitForStart() {
+  
+
+  // Wait until square is pressed then released
+  while (digitalRead(2) == HIGH);  // wait for press
+  while (digitalRead(2) == LOW);   // wait for release
+  
+  delay(1000);
+}
+
+
+void score_display() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB14_tr);
+  u8g2.drawStr(0, 16, "Score:"); // Text before score
+  u8g2.setFont(u8g2_font_logisoso32_tr);
+  u8g2.setCursor(0, 58);
+  u8g2.print(score); // score printed after 
+  u8g2.sendBuffer();
+}
+
+
+
 void setup() {
 /////RANDOM NUMBER SETUP/////////////////////////////////////////
 Serial.begin(9600);
 
-randomSeed(analogRead(A5)); // uses analog pin 5 which is unused so that we can have a random number each time
+
+
+u8g2.begin();
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB14_tr);
+  u8g2.drawStr(0, 20, "Ready!"); // displays ready when game will be good to start
+  u8g2.sendBuffer();
+  delay(1000);
+
+
+
+randomSeed(analogRead(A0)); // uses analog pin 5 which is unused so that we can have a random number each time
 ///////////////////////////////////////////////////////////////////
 
 //////////////////ENCODER PINS//////////////////////
@@ -34,6 +77,12 @@ randomSeed(analogRead(A5)); // uses analog pin 5 which is unused so that we can 
   //////////////////////////////////////////////
   pinMode(4,OUTPUT); // this is showing that it was correct
   pinMode(8,OUTPUT); // this shows that it was WRONG?!!!!
+
+  ////////////////////////////////
+  pinMode(A1, INPUT); // slider/potentiometer
+  ///////////////////////////////////////////////
+
+  waitForStart(); // when the button (pin 2 button) is pressed the game will start
 }
 
 
@@ -43,22 +92,42 @@ randomSeed(analogRead(A5)); // uses analog pin 5 which is unused so that we can 
 
 void loop() {
 
+
   //////////GAME ENDER CHECK///////////////
   if (gameOver) {
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB14_tr);
+      if (winner) {
+        u8g2.drawStr(0, 20, "YOU WIN!"); // letting you know you hit the threshold >=100
+      } else {
+        u8g2.drawStr(0, 20, "GAME OVER!"); // you messed up ending the game
+      }
+      u8g2.setFont(u8g2_font_ncenB08_tr);
+      u8g2.setCursor(0, 45);
+      u8g2.print("Score: ");
+      u8g2.print(score);
+      u8g2.sendBuffer();
 
-    if (winner)
-      Serial.println("YOU WIN!");
-    else
-      Serial.println("GAME OVER!");
+      digitalWrite(4, HIGH);
+      digitalWrite(8, HIGH);
+      ///////////////
+      while (digitalRead(2) == HIGH);  // wait for press
+    while (digitalRead(2) == LOW);   // wait for release
 
-    digitalWrite(4, HIGH);
-    digitalWrite(8, HIGH);
+    // Reset game
+    score = 0;
+    gameOver = false;
+    winner = false;
+    digitalWrite(4, LOW);
+    digitalWrite(8, LOW);
 
-    while (true); // stop program forever
-  }
+////////////////////////
+
+      waitForStart();
+    }
   ////////////////////////////////////////
 
-  int operation = random(2); // 0-buttons, 1-rotary, 2-triggers
+  int operation = random(3); // 0-buttons, 1-rotary, 2-triggers
   /////////////////
   for (int i = 0; i <= operation; i++) {
     digitalWrite(8, HIGH);
@@ -119,6 +188,13 @@ void loop() {
             break;
         }               //making sure that you did not spin the dial
 
+    
+    if (analogRead(A1) < 512) {
+      correct = false; 
+      finished = true; 
+      break;
+    }
+
 
   //////CHECK BUTTONS///////////
 
@@ -146,9 +222,9 @@ void loop() {
 
     score++;
 
-    Serial.println("CORRECT!");
-    Serial.print("Score: ");
-    Serial.println(score);
+    
+
+    score_display();
 
     digitalWrite(4, HIGH);
     delay(500);
@@ -162,12 +238,15 @@ void loop() {
   }
   else {
 
-    Serial.println("WRONG INPUT OR TIME OUT!");
-    gameOver = true;
+      u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(0, 20, "WRONG!");
+    u8g2.sendBuffer();
 
-    digitalWrite(8, HIGH);
-    delay(1000);
-    digitalWrite(8, LOW);
+      gameOver = true;
+      digitalWrite(8, HIGH);
+      delay(1000);
+      digitalWrite(8, LOW);
   }
 
 
@@ -203,6 +282,11 @@ if (operation == 1){
         break;
     }
 
+    if (analogRead(A1) < 512) {
+      correct = false;  
+      break;
+    }
+
     if (digitalRead(5)==LOW || digitalRead(6)==LOW ||
         digitalRead(7)==LOW || digitalRead(2)==LOW) {
         correct = false;
@@ -213,9 +297,8 @@ if (operation == 1){
 
     if (correct) {
       score++;
-      Serial.println("CORRECT!");
-      Serial.print("Score: ");
-      Serial.println(score);
+      
+      score_display();
 
       digitalWrite(4, HIGH);
       delay(500);
@@ -227,9 +310,69 @@ if (operation == 1){
       }
     }
     else {
-      Serial.println("WRONG INPUT OR TIME OUT!");
-      gameOver = true;
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB14_tr);
+      u8g2.drawStr(0, 20, "WRONG!");
+      u8g2.sendBuffer();
 
+      gameOver = true;
+      digitalWrite(8, HIGH);
+      delay(1000);
+      digitalWrite(8, LOW);
+    }
+
+    delay(1000);
+  }
+
+
+
+
+  if (operation == 2) {
+
+
+    bool correct = false;
+    unsigned long startTime = millis();
+    int turnloc = digitalRead(9); // turnlocation
+
+    while (millis() - startTime < timeLimit) {
+
+      // Success if slider pulled past threshold
+      if (analogRead(A1) < 512) {
+        correct = true; break;
+      }
+
+      // Fail if encoder moves
+      if (digitalRead(9) != turnloc) {
+        correct = false;
+        break;
+      }
+
+      // Fail if any button pressed
+      if (digitalRead(5) == LOW || digitalRead(6) == LOW ||
+          digitalRead(7) == LOW || digitalRead(2) == LOW) {
+        correct = false;
+        break;
+      }
+    }
+
+    if (correct) {
+      score++;
+      score_display();
+      digitalWrite(4, HIGH);
+      delay(500);
+      digitalWrite(4, LOW);
+      if (score >= 100) { 
+        winner = true; 
+        gameOver = true; 
+        }
+    }
+    else {
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB14_tr);
+      u8g2.drawStr(0, 20, "WRONG!");
+      u8g2.sendBuffer();
+
+      gameOver = true;
       digitalWrite(8, HIGH);
       delay(1000);
       digitalWrite(8, LOW);
@@ -239,4 +382,4 @@ if (operation == 1){
   }
 
 }
-///////////////////////////
+//////////////////////////
