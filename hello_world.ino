@@ -3,6 +3,7 @@
 
 
 // the setup function runs once when you press reset or power the board
+//Connor Rosenberg GitHub edit
 void setup() {
   pinMode(9, INPUT);
   pinMode(6, OUTPUT);
